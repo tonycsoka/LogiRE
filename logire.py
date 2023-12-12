@@ -14,6 +14,8 @@ from transformers.optimization import get_polynomial_decay_schedule_with_warmup
 from torch.utils.data import DataLoader
 
 from config import DEVICE
+PRETRAIN=5
+TRAIN=2
 
 class LogiRE():
     """The LogiRE framework for doc-level RE"""
@@ -80,7 +82,7 @@ class LogiRE():
         mix_data = MixRuleDataset([self.cooccur_data, self.naive_data], [0.9, 0.1])
         loader = DataLoader(mix_data, batch_size=32, num_workers=2)
         
-        self.rule_generator.train_model(loader, 50)
+        self.rule_generator.train_model(loader, PRETRAIN)
         torch.save(self.rule_generator.state_dict(), rg_path)
 
     def train_relation_extractor(self, save_path='scorer-0.pt'):
@@ -178,7 +180,7 @@ class LogiRE():
         # global sampling + momenta update instead of sampling + posterior inference for each instance for better optimization efficiency 
         self.cooccur_data.update(posterior_data, 0.1)
         loader = DataLoader(self.cooccur_data, batch_size=32, num_workers=2)
-        self.rule_generator.train_model(loader, 20)
+        self.rule_generator.train_model(loader, MSTEP)
         torch.save(self.rule_generator.state_dict(), os.path.join(self.save_dir, rg_save_path))
         # train relation extractor
         self.train_relation_extractor(scorer_save_path)
