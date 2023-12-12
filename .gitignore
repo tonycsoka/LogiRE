@@ -1,0 +1,4 @@
+*.pyc
+.__pycache__
+logire-save/
+logire-save/.placeholder

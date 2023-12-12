@@ -91,7 +91,7 @@ class LogiRE():
             return
 
         chains, scores, counts, c_sections = self.rule_generator.sample_rules(self.triples, self.args.Ns)
-        rule_scorer = RuleScorer(self.triples, chains, scores, counts, self.sections, c_sections).to(DEVICE)
+        rule_scorer = RuleScorer(self.triples, chains, scores, counts, self.sections, c_sections, Ns=self.args.Ns).to(DEVICE)
         model = RelationExtractor(rule_scorer)
         self.relation_extractor = model
         

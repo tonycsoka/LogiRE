@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--save_dir', default='logire-save')
     parser.add_argument('--train_batch_size', type=int, default=4)
     parser.add_argument('--test_batch_size', type=int, default=4)
-    parser.add_argument('--Ns', type=int, default=10, help="size of the latent rule set")
+    parser.add_argument('--Ns', type=int, default=20, help="size of the latent rule set")
     parser.add_argument('--num_epochs', type=int, default=50, help="number of training epochs for the relation extractor")
     parser.add_argument('--warmup_ratio', type=float, default=0.06)
     parser.add_argument('--rel_num', type=int, default=65, help="number of relation types")
