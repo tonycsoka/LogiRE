@@ -5,6 +5,8 @@ from logire import LogiRE, RelationExtractor
 from dataset import BackboneDataset, get_backbone_collate_fn
 from torch.utils.data import DataLoader
 
+from config import DEVICE
+
 
 def main():
     parser = ArgumentParser()
@@ -12,7 +14,7 @@ def main():
     parser.add_argument('--save_dir', default='logire-save')
     parser.add_argument('--train_batch_size', type=int, default=4)
     parser.add_argument('--test_batch_size', type=int, default=4)
-    parser.add_argument('--Ns', type=int, default=50, help="size of the latent rule set")
+    parser.add_argument('--Ns', type=int, default=10, help="size of the latent rule set")
     parser.add_argument('--num_epochs', type=int, default=50, help="number of training epochs for the relation extractor")
     parser.add_argument('--warmup_ratio', type=float, default=0.06)
     parser.add_argument('--rel_num', type=int, default=65, help="number of relation types")
@@ -35,7 +37,7 @@ def main():
         print('dev ', dev_ret)
         print('test', test_ret)
 
-        collate_fn = get_backbone_collate_fn(0)
+        collate_fn = get_backbone_collate_fn(DEVICE)
         dev_data = BackboneDataset(logire.re_reader.read('dev'), logire.type_masks['dev'], logire.dists['dev'])
         dev_loader = DataLoader(dev_data, batch_size=args.test_batch_size, shuffle=False, collate_fn=collate_fn)
         test_data = BackboneDataset(logire.re_reader.read('test'), logire.type_masks['test'], logire.dists['test'])

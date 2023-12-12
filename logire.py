@@ -10,9 +10,10 @@ from tqdm import tqdm
 from torch.distributions import Categorical
 from reader import ERuleReader, FeatureReader
 from dataset import ERuleDataset, PRuleDataset, BackboneDataset, get_backbone_collate_fn, NaiveRuleDataset, MixRuleDataset
-from transformers.optimization import AdamW, get_polynomial_decay_schedule_with_warmup
+from transformers.optimization import get_polynomial_decay_schedule_with_warmup
 from torch.utils.data import DataLoader
 
+from config import DEVICE
 
 class LogiRE():
     """The LogiRE framework for doc-level RE"""
@@ -67,7 +68,7 @@ class LogiRE():
         self.train_relation_extractor()
 
     def pretrain_rule_generator(self):
-        self.rule_generator = RuleGenerator(max_depth=self.max_depth, rel_num=self.rel_num, ent_num=self.ent_num).to(0)
+        self.rule_generator = RuleGenerator(max_depth=self.max_depth, rel_num=self.rel_num, ent_num=self.ent_num).to(DEVICE)
 
         rg_path = os.path.join(self.save_dir, 'rg-0.pt')
         if os.path.exists(rg_path):
@@ -90,11 +91,11 @@ class LogiRE():
             return
 
         chains, scores, counts, c_sections = self.rule_generator.sample_rules(self.triples, self.args.Ns)
-        rule_scorer = RuleScorer(self.triples, chains, scores, counts, self.sections, c_sections).to(0)
+        rule_scorer = RuleScorer(self.triples, chains, scores, counts, self.sections, c_sections).to(DEVICE)
         model = RelationExtractor(rule_scorer)
         self.relation_extractor = model
         
-        collate_fn = get_backbone_collate_fn(0)
+        collate_fn = get_backbone_collate_fn(DEVICE)
         train_data = BackboneDataset(self.re_reader.read('train'), self.type_masks['train'], self.dists['train'])
         train_loader = DataLoader(train_data, batch_size=self.args.train_batch_size, shuffle=True, collate_fn=collate_fn)
         dev_data = BackboneDataset(self.re_reader.read('dev'), self.type_masks['dev'], self.dists['dev'])
@@ -102,7 +103,7 @@ class LogiRE():
         test_data = BackboneDataset(self.re_reader.read('test'), self.type_masks['test'], self.dists['test'])
         test_loader = DataLoader(test_data, batch_size=self.args.test_batch_size, shuffle=False, collate_fn=collate_fn)
 
-        opt = AdamW(model.parameters(), lr=5e-3)
+        opt = torch.optim.AdamW(model.parameters(), lr=5e-3)
 
         total_steps = len(train_loader) * self.args.num_epochs
         warmup_steps = int(total_steps * self.args.warmup_ratio)
@@ -158,7 +159,7 @@ class LogiRE():
 
     def E_step(self):
         """approximate the posterior of each rule"""
-        collate_fn = get_backbone_collate_fn(0)
+        collate_fn = get_backbone_collate_fn(DEVICE)
         train_batch_size = 4
         train_data = BackboneDataset(self.re_reader.read('train'), self.type_masks['train'], self.dists['train'])
         train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=True, collate_fn=collate_fn)
@@ -285,13 +286,13 @@ class RuleGenerator(nn.Module):
         all_counts = []
         sections = []
         for triple in triples:
-            heads = torch.LongTensor([triple[1]] * N).to(0)
-            tails = torch.LongTensor([triple[2]] * N).to(0)
-            rels = torch.LongTensor([triple[0]] * N).to(0)
+            heads = torch.LongTensor([triple[1]] * N).to(DEVICE)
+            tails = torch.LongTensor([triple[2]] * N).to(DEVICE)
+            rels = torch.LongTensor([triple[0]] * N).to(DEVICE)
             src_emb = torch.stack([self.ent_emb(heads), self.rel_emb(rels), self.ent_emb(tails)])
             tgt_in = torch.zeros(1, N, self.hidden_size).to(src_emb)
             chains = []
-            scores = torch.zeros(N).to(0)
+            scores = torch.zeros(N).to(DEVICE)
             for i in range(self.max_depth):
                 tgt_mask = self.get_mask(i + 1).to(src_emb)
                 tgt_out = self.transformer(src_emb, tgt_in, tgt_mask=tgt_mask)[-1]
@@ -310,7 +311,7 @@ class RuleGenerator(nn.Module):
 
             chains = torch.stack(chains, dim=-1)  # [N, L]
             reduced_chains, indices, counts = chains.unique(sorted=False, return_inverse=True, return_counts=True, dim=0)
-            reduced_scores = torch.zeros(len(reduced_chains)).to(0)
+            reduced_scores = torch.zeros(len(reduced_chains)).to(DEVICE)
             for i, score in zip(indices, scores):
                 reduced_scores[i] = score
 
@@ -334,7 +335,7 @@ class RuleGenerator(nn.Module):
         for ei in range(num_epochs):
             for batch in tqdm(data_iter, ncols=80, desc='train rule generator: '):
                 chains, heads, tails = batch
-                loss = self.compute_loss(chains.to(0), heads.to(0), tails.to(0))
+                loss = self.compute_loss(chains.to(DEVICE), heads.to(DEVICE), tails.to(DEVICE))
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
@@ -389,9 +390,9 @@ class RuleScorer(nn.Module):
 
         # register buffer so that these variables will be saved in the state_dict
         self.register_buffer('triples', torch.tensor(triples))
-        self.register_buffer('rules', torch.tensor(rules))
-        self.register_buffer('rule_scores', torch.tensor(rule_scores))
-        self.register_buffer('rule_counts', torch.tensor(rule_counts))
+        self.register_buffer('rules', rules.clone().detach())
+        self.register_buffer('rule_scores', rule_scores.clone().detach())
+        self.register_buffer('rule_counts', rule_counts.clone().detach())
         self.register_buffer('t_sections', torch.tensor(t_sections))
         self.register_buffer('c_sections', torch.tensor(c_sections))
         self.Ns = Ns

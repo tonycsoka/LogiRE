@@ -1,6 +1,7 @@
 import torch
 import json
 from reader import FeatureReader
+from config import DEVICE
 
 
 class Evaluator():

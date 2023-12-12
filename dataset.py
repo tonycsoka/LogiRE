@@ -17,7 +17,7 @@ class BackboneDataset(Dataset):
         return len(self.features)
 
 
-def get_backbone_collate_fn(device='cpu'):
+def get_backbone_collate_fn(device=torch.device("cpu")):
 
     def collate_fn(batch):
         bsz = len(batch)

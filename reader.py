@@ -3,7 +3,7 @@ import torch
 import json
 from tqdm import tqdm
 from collections import Counter, defaultdict
-
+from config import DEVICE
 
 class FeatureReader(object):
     def __init__(self, data_path) -> None:
